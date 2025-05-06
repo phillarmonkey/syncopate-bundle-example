@@ -15,6 +15,8 @@ use App\Repository\ProductRepository;
 use App\Repository\ReviewRepository;
 use App\Repository\UserRepository;
 use Phillarmonic\SyncopateBundle\Model\QueryFilter;
+use Phillarmonic\SyncopateBundle\Model\QueryOptions;
+use Phillarmonic\SyncopateBundle\Model\JoinQueryOptions;
 use Phillarmonic\SyncopateBundle\Service\SyncopateService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,7 +24,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/api/performance')]
+#[Route('/api/benchmark')]
 class SyncopatePerformanceController extends AbstractController
 {
     private SyncopateService $syncopateService;
@@ -49,151 +51,262 @@ class SyncopatePerformanceController extends AbstractController
     }
 
     /**
+     * Dashboard with entity counts and system info
+     */
+    #[Route('/dashboard', name: 'app_benchmark_dashboard', methods: ['GET'])]
+    public function dashboard(): JsonResponse
+    {
+        $startTime = microtime(true);
+
+        // Get entity counts
+        $categoriesCount = $this->categoryRepository->count();
+        $productsCount = $this->productRepository->count();
+        $ordersCount = $this->orderRepository->count();
+        $reviewsCount = $this->reviewRepository->count();
+        $usersCount = $this->userRepository->count();
+
+        // Get system info
+        $serverInfo = $this->syncopateService->getServerInfo();
+        $health = $this->syncopateService->checkHealth();
+
+        $timeTaken = microtime(true) - $startTime;
+
+        return new JsonResponse([
+            'entities' => [
+                'categories' => $categoriesCount,
+                'products' => $productsCount,
+                'orders' => $ordersCount,
+                'reviews' => $reviewsCount,
+                'users' => $usersCount,
+            ],
+            'system' => [
+                'server_info' => $serverInfo,
+                'health' => $health,
+                'memory_usage' => $this->formatBytes(memory_get_usage()),
+                'peak_memory' => $this->formatBytes(memory_get_peak_usage()),
+            ],
+            'performance' => [
+                'time_taken' => $timeTaken,
+            ],
+        ]);
+    }
+
+    /**
      * Basic CRUD operations benchmark
      */
-    #[Route('/crud', name: 'app_performance_crud', methods: ['GET'])]
+    #[Route('/crud', name: 'app_benchmark_crud', methods: ['GET'])]
     public function crudBenchmark(): JsonResponse
     {
-        $start = microtime(true);
         $results = [];
 
-        // Create a new category
+        // Create
         $createStart = microtime(true);
         $category = new Category();
-        $category->name = 'Performance Test Category ' . uniqid('', true);
-        $category->description = 'Created for performance testing';
-        $category->slug = 'performance-test-' . uniqid('', true);
-        $category->position = 999;
+        $category->name = 'Benchmark Category ' . uniqid('', true);
+        $category->description = 'Created for benchmarking';
+        $category->slug = 'benchmark-' . uniqid('', true);
+        $category->position = 1000;
         $category = $this->syncopateService->create($category);
-        $results['create'] = microtime(true) - $createStart;
+        $results['create'] = [
+            'time' => microtime(true) - $createStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+        ];
 
-        // Read the category
+        // Read
         $readStart = microtime(true);
         $category = $this->syncopateService->getById(Category::class, $category->id);
-        $results['read'] = microtime(true) - $readStart;
+        $results['read'] = [
+            'time' => microtime(true) - $readStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+        ];
 
-        // Update the category
+        // Update
         $updateStart = microtime(true);
-        $category->description = 'Updated for performance testing';
+        $category->description = 'Updated for benchmarking';
         $category = $this->syncopateService->update($category);
-        $results['update'] = microtime(true) - $updateStart;
+        $results['update'] = [
+            'time' => microtime(true) - $updateStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+        ];
 
-        // Delete the category
+        // Delete
         $deleteStart = microtime(true);
-        $this->syncopateService->delete($category);
-        $results['delete'] = microtime(true) - $deleteStart;
-
-        $results['total'] = microtime(true) - $start;
+        $deleted = $this->syncopateService->delete($category);
+        $results['delete'] = [
+            'time' => microtime(true) - $deleteStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'success' => $deleted,
+        ];
 
         return new JsonResponse($results);
     }
 
     /**
-     * Basic repository operations benchmark
+     * Bulk operations benchmark
      */
-    #[Route('/repository', name: 'app_performance_repository', methods: ['GET'])]
-    public function repositoryBenchmark(): JsonResponse
+    #[Route('/bulk', name: 'app_benchmark_bulk', methods: ['GET'])]
+    public function bulkOperationsBenchmark(Request $request): JsonResponse
     {
-        $start = microtime(true);
+        $count = $request->query->getInt('count', 100);
         $results = [];
 
-        // Find all products
+        // Bulk create
+        $createStart = microtime(true);
+        $categoryIds = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $category = new Category();
+            $category->name = 'Bulk Cat ' . $i . ' ' . uniqid('', true);
+            $category->description = 'Created in bulk operation';
+            $category->slug = 'bulk-' . $i . '-' . uniqid('', true);
+            $category->position = 2000 + $i;
+
+            $category = $this->syncopateService->create($category);
+            $categoryIds[] = $category->id;
+
+            // Garbage collection for large operations
+            if ($i % 20 === 0) {
+                gc_collect_cycles();
+            }
+        }
+
+        $results['bulk_create'] = [
+            'time' => microtime(true) - $createStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($categoryIds),
+        ];
+
+        // Bulk read
+        $readStart = microtime(true);
+        $categories = [];
+
+        foreach ($categoryIds as $id) {
+            $categories[] = $this->syncopateService->getById(Category::class, $id);
+
+            // Garbage collection for large operations
+            if (count($categories) % 20 === 0) {
+                gc_collect_cycles();
+            }
+        }
+
+        $results['bulk_read'] = [
+            'time' => microtime(true) - $readStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($categories),
+        ];
+
+        // Bulk update
+        $updateStart = microtime(true);
+        $updateCount = 0;
+
+        foreach ($categories as $category) {
+            $category->description = 'Updated in bulk operation ' . uniqid('', true);
+            $this->syncopateService->update($category);
+            $updateCount++;
+
+            // Garbage collection for large operations
+            if ($updateCount % 20 === 0) {
+                gc_collect_cycles();
+            }
+        }
+
+        $results['bulk_update'] = [
+            'time' => microtime(true) - $updateStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => $updateCount,
+        ];
+
+        // Bulk delete
+        $deleteStart = microtime(true);
+        $deleteCount = 0;
+
+        foreach ($categories as $category) {
+            $this->syncopateService->delete($category);
+            $deleteCount++;
+
+            // Garbage collection for large operations
+            if ($deleteCount % 20 === 0) {
+                gc_collect_cycles();
+            }
+        }
+
+        $results['bulk_delete'] = [
+            'time' => microtime(true) - $deleteStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => $deleteCount,
+        ];
+
+        return new JsonResponse($results);
+    }
+
+    /**
+     * Query benchmark
+     */
+    #[Route('/query', name: 'app_benchmark_query', methods: ['GET'])]
+    public function queryBenchmark(): JsonResponse
+    {
+        $results = [];
+
+        // Simple find all
         $findAllStart = microtime(true);
         $products = $this->productRepository->findAll();
-        $results['findAll'] = microtime(true) - $findAllStart;
-        $results['findAll_count'] = count($products);
+        $results['find_all'] = [
+            'time' => microtime(true) - $findAllStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($products),
+        ];
 
-        // Find by criteria
-        $findByStart = microtime(true);
-        $activeProducts = $this->productRepository->findBy(['isActive' => true], ['price' => 'ASC'], 50);
-        $results['findBy'] = microtime(true) - $findByStart;
-        $results['findBy_count'] = count($activeProducts);
+        // Query with criteria
+        $queryWithCriteriaStart = microtime(true);
+        $activeProducts = $this->productRepository->findBy(['isActive' => true], ['price' => 'ASC'], 100);
+        $results['query_with_criteria'] = [
+            'time' => microtime(true) - $queryWithCriteriaStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($activeProducts),
+        ];
 
-        // Find one by criteria
-        $findOneByStart = microtime(true);
-        $product = $this->productRepository->findOneBy(['isActive' => true]);
-        $results['findOneBy'] = microtime(true) - $findOneByStart;
-        $results['findOneBy_found'] = $product !== null;
-
-        // Count
-        $countStart = microtime(true);
-        $count = $this->productRepository->count(['isActive' => true]);
-        $results['count'] = microtime(true) - $countStart;
-        $results['count_value'] = $count;
-
-        $results['total'] = microtime(true) - $start;
-
-        return new JsonResponse($results);
-    }
-
-    /**
-     * Query builder operations benchmark
-     */
-    #[Route('/query-builder', name: 'app_performance_query_builder', methods: ['GET'])]
-    public function queryBuilderBenchmark(): JsonResponse
-    {
-        $start = microtime(true);
-        $results = [];
-
-        // Simple query
-        $simpleQueryStart = microtime(true);
-        $products = $this->productRepository->createQueryBuilder()
+        // Complex query with query builder
+        $complexQueryStart = microtime(true);
+        $expensiveProducts = $this->productRepository->createQueryBuilder()
             ->eq('isActive', true)
-            ->orderBy('price', 'ASC')
+            ->gt('price', 500)
+            ->gt('stock', 10)
+            ->orderBy('price', 'DESC')
             ->limit(50)
             ->getResult();
-        $results['simple_query'] = microtime(true) - $simpleQueryStart;
-        $results['simple_query_count'] = count($products);
-
-        // Complex query
-        $complexQueryStart = microtime(true);
-        $products = $this->productRepository->createQueryBuilder()
-            ->eq('isActive', true)
-            ->gte('price', 50)
-            ->lte('price', 500)
-            ->gt('stock', 0)
-            ->orderBy('price', 'DESC')
-            ->limit(20)
-            ->getResult();
-        $results['complex_query'] = microtime(true) - $complexQueryStart;
-        $results['complex_query_count'] = count($products);
+        $results['complex_query'] = [
+            'time' => microtime(true) - $complexQueryStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($expensiveProducts),
+        ];
 
         // Fuzzy search
         $fuzzySearchStart = microtime(true);
-        $products = $this->productRepository->createQueryBuilder()
+        $searchProducts = $this->productRepository->createQueryBuilder()
             ->fuzzy('name', 'chair')
             ->setFuzzyOptions(0.7, 3)
-            ->limit(10)
+            ->limit(20)
             ->getResult();
-        $results['fuzzy_search'] = microtime(true) - $fuzzySearchStart;
-        $results['fuzzy_search_count'] = count($products);
-
-        // Count query
-        $countQueryStart = microtime(true);
-        $count = $this->productRepository->createQueryBuilder()
-            ->eq('isActive', true)
-            ->gte('price', 100)
-            ->count();
-        $results['count_query'] = microtime(true) - $countQueryStart;
-        $results['count_query_value'] = $count;
-
-        $results['total'] = microtime(true) - $start;
+        $results['fuzzy_search'] = [
+            'time' => microtime(true) - $fuzzySearchStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($searchProducts),
+        ];
 
         return new JsonResponse($results);
     }
 
     /**
-     * Join query operations benchmark
+     * Join query benchmark
      */
-    #[Route('/join-query', name: 'app_performance_join_query', methods: ['GET'])]
+    #[Route('/join', name: 'app_benchmark_join', methods: ['GET'])]
     public function joinQueryBenchmark(): JsonResponse
     {
-        $start = microtime(true);
         $results = [];
 
         // Simple join
         $simpleJoinStart = microtime(true);
-        $products = $this->productRepository->createJoinQueryBuilder()
+        $productsWithCategory = $this->productRepository->createJoinQueryBuilder()
             ->eq('isActive', true)
             ->innerJoin(
                 'category',
@@ -201,14 +314,17 @@ class SyncopatePerformanceController extends AbstractController
                 'id',
                 'category'
             )
-            ->limit(20)
+            ->limit(50)
             ->getJoinResult();
-        $results['simple_join'] = microtime(true) - $simpleJoinStart;
-        $results['simple_join_count'] = count($products);
+        $results['simple_join'] = [
+            'time' => microtime(true) - $simpleJoinStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($productsWithCategory),
+        ];
 
-        // Complex join with filters
+        // Complex join
         $complexJoinStart = microtime(true);
-        $orders = $this->orderRepository->createJoinQueryBuilder()
+        $ordersWithItems = $this->orderRepository->createJoinQueryBuilder()
             ->eq('status', Order::STATUS_COMPLETED)
             ->innerJoin(
                 'order_item',
@@ -222,14 +338,17 @@ class SyncopatePerformanceController extends AbstractController
                 'id',
                 'user'
             )
-            ->limit(10)
+            ->limit(20)
             ->getJoinResult();
-        $results['complex_join'] = microtime(true) - $complexJoinStart;
-        $results['complex_join_count'] = count($orders);
+        $results['complex_join'] = [
+            'time' => microtime(true) - $complexJoinStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($ordersWithItems),
+        ];
 
-        // Join with filter on joined entity
-        $joinWithFilterStart = microtime(true);
-        $products = $this->productRepository->createJoinQueryBuilder()
+        // Join with filtering on joined entity
+        $joinWithFilteringStart = microtime(true);
+        $joinBuilder = $this->productRepository->createJoinQueryBuilder()
             ->eq('isActive', true)
             ->innerJoin(
                 'review',
@@ -238,15 +357,17 @@ class SyncopatePerformanceController extends AbstractController
                 'reviews'
             );
 
-        $products->addJoinFilter(
+        $joinBuilder->addJoinFilter(
             QueryFilter::gte('rating', 4)
         );
 
-        $productsWithGoodReviews = $products->limit(10)->getJoinResult();
-        $results['join_with_filter'] = microtime(true) - $joinWithFilterStart;
-        $results['join_with_filter_count'] = count($productsWithGoodReviews);
+        $productsWithGoodReviews = $joinBuilder->limit(20)->getJoinResult();
 
-        $results['total'] = microtime(true) - $start;
+        $results['join_with_filtering'] = [
+            'time' => microtime(true) - $joinWithFilteringStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($productsWithGoodReviews),
+        ];
 
         return new JsonResponse($results);
     }
@@ -254,93 +375,114 @@ class SyncopatePerformanceController extends AbstractController
     /**
      * Custom repository methods benchmark
      */
-    #[Route('/custom-repository', name: 'app_performance_custom_repository', methods: ['GET'])]
-    public function customRepositoryBenchmark(): JsonResponse
+    #[Route('/custom-repository', name: 'app_benchmark_custom_repository', methods: ['GET'])]
+    public function customRepositoryMethodsBenchmark(): JsonResponse
     {
-        $start = microtime(true);
         $results = [];
 
-        // Category Repository
+        // Category repository methods
         $rootCategoriesStart = microtime(true);
         $rootCategories = $this->categoryRepository->findRootCategories();
-        $results['root_categories'] = microtime(true) - $rootCategoriesStart;
-        $results['root_categories_count'] = count($rootCategories);
+        $results['root_categories'] = [
+            'time' => microtime(true) - $rootCategoriesStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($rootCategories),
+        ];
 
-        // Product Repository
+        $categoryTreeStart = microtime(true);
+        $categoryTree = $this->categoryRepository->buildCategoryTree();
+        $results['category_tree'] = [
+            'time' => microtime(true) - $categoryTreeStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($categoryTree),
+        ];
+
+        // Product repository methods
         $lowStockStart = microtime(true);
         $lowStockProducts = $this->productRepository->findLowStockProducts(10);
-        $results['low_stock_products'] = microtime(true) - $lowStockStart;
-        $results['low_stock_products_count'] = count($lowStockProducts);
+        $results['low_stock_products'] = [
+            'time' => microtime(true) - $lowStockStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($lowStockProducts),
+        ];
 
-        // Order Repository
+        $popularProductsStart = microtime(true);
+        $popularProducts = $this->productRepository->findPopularProducts(10);
+        $results['popular_products'] = [
+            'time' => microtime(true) - $popularProductsStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($popularProducts),
+        ];
+
+        // Order repository methods
         $ordersByStatusStart = microtime(true);
         $completedOrders = $this->orderRepository->findByStatus(Order::STATUS_COMPLETED, 20);
-        $results['orders_by_status'] = microtime(true) - $ordersByStatusStart;
-        $results['orders_by_status_count'] = count($completedOrders);
+        $results['orders_by_status'] = [
+            'time' => microtime(true) - $ordersByStatusStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($completedOrders),
+        ];
 
-        // User Repository
+        // User repository methods
         $recentUsersStart = microtime(true);
         $recentUsers = $this->userRepository->findRecentlyRegistered(30, 20);
-        $results['recent_users'] = microtime(true) - $recentUsersStart;
-        $results['recent_users_count'] = count($recentUsers);
-
-        // Review Repository
-        $topRatedStart = microtime(true);
-        $topRatedReviews = $this->reviewRepository->findTopRatedReviews(4, 20);
-        $results['top_rated_reviews'] = microtime(true) - $topRatedStart;
-        $results['top_rated_reviews_count'] = count($topRatedReviews);
-
-        $results['total'] = microtime(true) - $start;
+        $results['recent_users'] = [
+            'time' => microtime(true) - $recentUsersStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($recentUsers),
+        ];
 
         return new JsonResponse($results);
     }
 
     /**
-     * Memory usage benchmark
+     * Memory usage monitoring test
      */
-    #[Route('/memory-usage', name: 'app_performance_memory_usage', methods: ['GET'])]
-    public function memoryUsageBenchmark(): JsonResponse
+    #[Route('/memory', name: 'app_benchmark_memory', methods: ['GET'])]
+    public function memoryUsageBenchmark(Request $request): JsonResponse
     {
-        $initMemory = memory_get_usage();
+        $batchSize = $request->query->getInt('batch_size', 50);
         $results = [];
 
-        // Load large result set
-        $results['initial_memory'] = $this->formatBytes($initMemory);
+        // Initial memory
+        $initialMemory = memory_get_usage();
+        $results['initial_memory'] = $this->formatBytes($initialMemory);
 
-        $loadLargeStart = microtime(true);
+        // Load all products at once
+        $bulkLoadStart = microtime(true);
         $memoryBefore = memory_get_usage();
 
-        // Load all products
         $products = $this->productRepository->findAll();
 
         $memoryAfter = memory_get_usage();
         $peakMemory = memory_get_peak_usage();
 
-        $results['large_result_time'] = microtime(true) - $loadLargeStart;
-        $results['large_result_count'] = count($products);
-        $results['memory_before'] = $this->formatBytes($memoryBefore);
-        $results['memory_after'] = $this->formatBytes($memoryAfter);
-        $results['memory_increase'] = $this->formatBytes($memoryAfter - $memoryBefore);
-        $results['peak_memory'] = $this->formatBytes($peakMemory);
+        $results['bulk_load'] = [
+            'time' => microtime(true) - $bulkLoadStart,
+            'memory_before' => $this->formatBytes($memoryBefore),
+            'memory_after' => $this->formatBytes($memoryAfter),
+            'memory_increase' => $this->formatBytes($memoryAfter - $memoryBefore),
+            'peak_memory' => $this->formatBytes($peakMemory),
+            'count' => count($products),
+        ];
 
-        // Force garbage collection
+        // Clear memory
         unset($products);
         gc_collect_cycles();
 
-        $results['memory_after_gc'] = $this->formatBytes(memory_get_usage());
+        $results['after_gc'] = $this->formatBytes(memory_get_usage());
 
-        // Load batched result set
-        $batchSize = 50;
-        $batchedStart = microtime(true);
+        // Load products in batches
+        $batchedLoadStart = microtime(true);
         $memoryBefore = memory_get_usage();
 
-        $totalCount = 0;
         $offset = 0;
+        $totalCount = 0;
         $hasMore = true;
 
         while ($hasMore) {
-            $batchProducts = $this->productRepository->findBy([], [], $batchSize, $offset);
-            $batchCount = count($batchProducts);
+            $batch = $this->productRepository->findBy([], [], $batchSize, $offset);
+            $batchCount = count($batch);
             $totalCount += $batchCount;
 
             if ($batchCount < $batchSize) {
@@ -350,63 +492,65 @@ class SyncopatePerformanceController extends AbstractController
             }
 
             // Free memory
-            unset($batchProducts);
+            unset($batch);
             gc_collect_cycles();
         }
 
         $memoryAfter = memory_get_usage();
         $peakMemory = memory_get_peak_usage();
 
-        $results['batched_result_time'] = microtime(true) - $batchedStart;
-        $results['batched_result_count'] = $totalCount;
-        $results['batched_memory_before'] = $this->formatBytes($memoryBefore);
-        $results['batched_memory_after'] = $this->formatBytes($memoryAfter);
-        $results['batched_memory_increase'] = $this->formatBytes($memoryAfter - $memoryBefore);
-        $results['batched_peak_memory'] = $this->formatBytes($peakMemory);
+        $results['batched_load'] = [
+            'time' => microtime(true) - $batchedLoadStart,
+            'memory_before' => $this->formatBytes($memoryBefore),
+            'memory_after' => $this->formatBytes($memoryAfter),
+            'memory_increase' => $this->formatBytes($memoryAfter - $memoryBefore),
+            'peak_memory' => $this->formatBytes($peakMemory),
+            'count' => $totalCount,
+            'batch_size' => $batchSize,
+        ];
 
         return new JsonResponse($results);
     }
 
     /**
-     * Stress test - multiple concurrent operations
+     * Stress test
      */
-    #[Route('/stress-test', name: 'app_performance_stress_test', methods: ['GET'])]
+    #[Route('/stress', name: 'app_benchmark_stress', methods: ['GET'])]
     public function stressTest(Request $request): JsonResponse
     {
         $iterations = $request->query->getInt('iterations', 10);
-        $start = microtime(true);
         $results = [];
 
+        $overallStart = microtime(true);
+
         for ($i = 0; $i < $iterations; $i++) {
-            // Create new entities
+            // Create entities
             $category = new Category();
             $category->name = 'Stress Test Category ' . $i;
             $category->description = 'Created during stress test';
             $category->slug = 'stress-test-' . $i;
-            $category->position = 1000 + $i;
+            $category->position = 3000 + $i;
             $category = $this->syncopateService->create($category);
 
+            // Create a product
             $product = new Product();
             $product->name = 'Stress Test Product ' . $i;
             $product->description = 'Created during stress test';
-            $product->price = mt_rand(10, 1000) / 10;
+            $product->price = mt_rand(100, 1000) / 10;
             $product->stock = mt_rand(1, 100);
-            $product->sku = 'STRESS-' . $i;
+            $product->sku = 'STRESS-' . uniqid();
             $product->categoryId = $category->id;
             $product = $this->syncopateService->create($product);
 
-            // Perform queries
-            $this->productRepository->findLowStockProducts(5);
+            // Run queries
+            $this->productRepository->findByPriceRange(10, 1000, 20);
             $this->categoryRepository->findRootCategories();
 
             // Update entities
-            $category->description = 'Updated during stress test ' . $i;
-            $this->syncopateService->update($category);
-
-            $product->stock = mt_rand(1, 100);
+            $product->description = 'Updated during stress test';
             $this->syncopateService->update($product);
 
-            // Delete entities
+            // Delete entities to clean up
             $this->syncopateService->delete($product);
             $this->syncopateService->delete($category);
 
@@ -415,95 +559,72 @@ class SyncopatePerformanceController extends AbstractController
             gc_collect_cycles();
         }
 
-        $results['iterations'] = $iterations;
-        $results['total_time'] = microtime(true) - $start;
-        $results['avg_time_per_iteration'] = $results['total_time'] / $iterations;
-        $results['peak_memory'] = $this->formatBytes(memory_get_peak_usage());
+        $totalTime = microtime(true) - $overallStart;
+
+        $results['stress_test'] = [
+            'iterations' => $iterations,
+            'total_time' => $totalTime,
+            'avg_time_per_iteration' => $totalTime / $iterations,
+            'peak_memory' => $this->formatBytes(memory_get_peak_usage()),
+        ];
 
         return new JsonResponse($results);
     }
 
     /**
-     * Performance dashboard with all metrics
+     * Raw query options benchmark
      */
-    #[Route('/dashboard', name: 'app_performance_dashboard', methods: ['GET'])]
-    public function dashboard(): Response
+    #[Route('/raw-query', name: 'app_benchmark_raw_query', methods: ['GET'])]
+    public function rawQueryBenchmark(): JsonResponse
     {
-        $stats = [
-            'database' => $this->getDatabaseStats(),
-            'entity_counts' => $this->getEntityCounts(),
-            'performance_metrics' => $this->getPerformanceMetrics(),
+        $results = [];
+
+        // Get entity type
+        $entityType = $this->categoryRepository->getEntityType();
+
+        // Create query options manually
+        $queryStart = microtime(true);
+
+        $queryOptions = new QueryOptions($entityType);
+        $queryOptions->addFilter(QueryFilter::eq('isActive', true));
+        $queryOptions->setLimit(50);
+        $queryOptions->setOrderBy('position');
+
+        $categories = $this->syncopateService->query(Category::class, $queryOptions);
+
+        $results['raw_query'] = [
+            'time' => microtime(true) - $queryStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($categories),
         ];
 
-        // In a real application, you might render a Twig template
-        // For simplicity, we'll return JSON
-        return new JsonResponse($stats);
-    }
+        // Create join query options manually
+        $joinQueryStart = microtime(true);
 
-    /**
-     * Get database statistics
-     */
-    private function getDatabaseStats(): array
-    {
-        try {
-            $info = $this->syncopateService->getServerInfo();
-            $settings = $this->syncopateService->getServerSettings();
-            $health = $this->syncopateService->checkHealth();
+        $joinQueryOptions = new JoinQueryOptions($entityType);
+        $joinQueryOptions->addFilter(QueryFilter::eq('isActive', true));
 
-            return [
-                'info' => $info,
-                'settings' => $settings,
-                'health' => $health,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'error' => $e->getMessage(),
-            ];
-        }
-    }
+        $joinDefinition = new \Phillarmonic\SyncopateBundle\Model\JoinDefinition(
+            'product',
+            'id',
+            'categoryId',
+            'products',
+            \Phillarmonic\SyncopateBundle\Model\JoinDefinition::JOIN_TYPE_INNER,
+            \Phillarmonic\SyncopateBundle\Model\JoinDefinition::SELECT_STRATEGY_ALL
+        );
 
-    /**
-     * Get entity counts
-     */
-    private function getEntityCounts(): array
-    {
-        return [
-            'categories' => $this->categoryRepository->count(),
-            'products' => $this->productRepository->count(),
-            'users' => $this->userRepository->count(),
-            'orders' => $this->orderRepository->count(),
-            'reviews' => $this->reviewRepository->count(),
+        $joinQueryOptions->addJoin($joinDefinition);
+        $joinQueryOptions->setLimit(20);
+
+        $categoriesWithProducts = $this->syncopateService->joinQuery(Category::class, $joinQueryOptions);
+
+        $results['raw_join_query'] = [
+            'time' => microtime(true) - $joinQueryStart,
+            'memory' => $this->formatBytes(memory_get_peak_usage()),
+            'count' => count($categoriesWithProducts),
         ];
-    }
 
-    /**
-     * Get performance metrics
-     */
-    private function getPerformanceMetrics(): array
-    {
-        $start = microtime(true);
-
-        // Simple performance measures
-        $simpleReadStart = microtime(true);
-        $this->categoryRepository->findAll();
-        $simpleReadTime = microtime(true) - $simpleReadStart;
-
-        $simpleQueryStart = microtime(true);
-        $this->productRepository->findByPriceRange(10, 100, 20);
-        $simpleQueryTime = microtime(true) - $simpleQueryStart;
-
-        $complexQueryStart = microtime(true);
-        $this->productRepository->findProductsWithReviews(4, 10);
-        $complexQueryTime = microtime(true) - $complexQueryStart;
-
-        return [
-            'simple_read_time' => $simpleReadTime,
-            'simple_query_time' => $simpleQueryTime,
-            'complex_query_time' => $complexQueryTime,
-            'total_benchmark_time' => microtime(true) - $start,
-            'peak_memory' => $this->formatBytes(memory_get_peak_usage()),
-            'current_memory' => $this->formatBytes(memory_get_usage()),
-        ];
+        return new JsonResponse($results);
     }
 
     /**

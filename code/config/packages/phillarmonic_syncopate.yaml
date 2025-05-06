@@ -1,0 +1,18 @@
+phillarmonic_syncopate:
+    # Required: set the base URL of your SyncopateDB instance
+    base_url: 'http://syncopatedb:8080'
+
+    # Optional configurations with defaults
+    timeout: 2
+    retry_failed: false
+    max_retries: 3
+    retry_delay: 1000
+
+    # Entity discovery
+    entity_paths:
+        - '%kernel.project_dir%/src/Entity'
+    auto_create_entity_types: true
+
+    # Caching
+    cache_entity_types: false
+    cache_ttl: 3600

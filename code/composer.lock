@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "239be2222a03e659e63db6dc3ba0586a",
+    "content-hash": "c7ff467dcc6ac70b8785efaa2937e393",
     "packages": [
         {
             "name": "composer/semver",
@@ -1539,16 +1539,16 @@
         },
         {
             "name": "phillarmonic/syncopate-bundle",
-            "version": "1.4.0",
+            "version": "1.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Phillarmonic/syncopate-bundle.git",
-                "reference": "165ba5d6b7bbcc19e31135beea9a937e5873fb28"
+                "reference": "2639ae4ecf230748b8e96d30fb44434d9231a8c5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Phillarmonic/syncopate-bundle/zipball/165ba5d6b7bbcc19e31135beea9a937e5873fb28",
-                "reference": "165ba5d6b7bbcc19e31135beea9a937e5873fb28",
+                "url": "https://api.github.com/repos/Phillarmonic/syncopate-bundle/zipball/2639ae4ecf230748b8e96d30fb44434d9231a8c5",
+                "reference": "2639ae4ecf230748b8e96d30fb44434d9231a8c5",
                 "shasum": ""
             },
             "require": {
@@ -1589,9 +1589,9 @@
             "description": "Symfony bundle for integrating with SyncopateDB",
             "support": {
                 "issues": "https://github.com/Phillarmonic/syncopate-bundle/issues",
-                "source": "https://github.com/Phillarmonic/syncopate-bundle/tree/v1.4.0"
+                "source": "https://github.com/Phillarmonic/syncopate-bundle/tree/v1.4.1"
             },
-            "time": "2025-05-06T15:50:05+00:00"
+            "time": "2025-05-06T18:10:55+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",

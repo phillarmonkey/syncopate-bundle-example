@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\CategoryRepository;
 use Phillarmonic\SyncopateBundle\Attribute\Entity;
 use Phillarmonic\SyncopateBundle\Attribute\Field;
 use Phillarmonic\SyncopateBundle\Attribute\Relationship;
@@ -12,7 +13,8 @@ use DateTimeInterface;
 #[Entity(
     name: 'category',
     idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
-    description: 'Product category entity for benchmarking'
+    description: 'Product category entity for benchmarking',
+    repositoryClass: CategoryRepository::class
 )]
 class Category
 {

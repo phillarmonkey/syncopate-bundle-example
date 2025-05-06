@@ -3,12 +3,19 @@
 namespace App\Repository;
 
 use App\Entity\User;
+use Phillarmonic\SyncopateBundle\Mapper\EntityMapper;
 use Phillarmonic\SyncopateBundle\Model\QueryFilter;
 use Phillarmonic\SyncopateBundle\Repository\EntityRepository;
 use DateTimeInterface;
+use Phillarmonic\SyncopateBundle\Service\SyncopateService;
 
 class UserRepository extends EntityRepository
 {
+    public function __construct(SyncopateService $syncopateService, EntityMapper $entityMapper, string $entityClass)
+    {
+        parent::__construct($syncopateService, $entityMapper, $entityClass);
+    }
+
     /**
      * Find users by email pattern
      */

@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\ProductRepository;
 use Phillarmonic\SyncopateBundle\Attribute\Entity;
 use Phillarmonic\SyncopateBundle\Attribute\Field;
 use Phillarmonic\SyncopateBundle\Attribute\Relationship;
@@ -12,7 +13,8 @@ use DateTimeInterface;
 #[Entity(
     name: 'product',
     idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
-    description: 'Product entity for benchmarking'
+    description: 'Product entity for benchmarking',
+    repositoryClass: ProductRepository::class
 )]
 class Product
 {

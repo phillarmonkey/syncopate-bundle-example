@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\OrderRepository;
 use Phillarmonic\SyncopateBundle\Attribute\Entity;
 use Phillarmonic\SyncopateBundle\Attribute\Field;
 use Phillarmonic\SyncopateBundle\Attribute\Relationship;
@@ -12,7 +13,8 @@ use DateTimeInterface;
 #[Entity(
     name: 'order',
     idGenerator: EntityDefinition::ID_TYPE_UUID,
-    description: 'Order entity for benchmarking'
+    description: 'Order entity for benchmarking',
+    repositoryClass: OrderRepository::class
 )]
 class Order
 {

@@ -3,11 +3,18 @@
 namespace App\Repository;
 
 use App\Entity\Category;
+use Phillarmonic\SyncopateBundle\Mapper\EntityMapper;
 use Phillarmonic\SyncopateBundle\Model\QueryFilter;
 use Phillarmonic\SyncopateBundle\Repository\EntityRepository;
+use Phillarmonic\SyncopateBundle\Service\SyncopateService;
 
 class CategoryRepository extends EntityRepository
 {
+    public function __construct(SyncopateService $syncopateService, EntityMapper $entityMapper, string $entityClass)
+    {
+        parent::__construct($syncopateService, $entityMapper, $entityClass);
+    }
+
     /**
      * Find all root categories (without parent)
      */

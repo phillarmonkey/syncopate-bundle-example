@@ -3,11 +3,18 @@
 namespace App\Repository;
 
 use App\Entity\Product;
+use Phillarmonic\SyncopateBundle\Mapper\EntityMapper;
 use Phillarmonic\SyncopateBundle\Model\QueryFilter;
 use Phillarmonic\SyncopateBundle\Repository\EntityRepository;
+use Phillarmonic\SyncopateBundle\Service\SyncopateService;
 
 class ProductRepository extends EntityRepository
 {
+    public function __construct(SyncopateService $syncopateService, EntityMapper $entityMapper, string $entityClass)
+    {
+        parent::__construct($syncopateService, $entityMapper, $entityClass);
+    }
+
     /**
      * Find products by price range
      */

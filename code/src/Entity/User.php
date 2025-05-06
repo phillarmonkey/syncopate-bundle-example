@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\UserRepository;
 use Phillarmonic\SyncopateBundle\Attribute\Entity;
 use Phillarmonic\SyncopateBundle\Attribute\Field;
 use Phillarmonic\SyncopateBundle\Attribute\Relationship;
@@ -12,7 +13,8 @@ use DateTimeInterface;
 #[Entity(
     name: 'user',
     idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
-    description: 'User entity for benchmarking'
+    description: 'User entity for benchmarking',
+    repositoryClass: UserRepository::class
 )]
 class User
 {

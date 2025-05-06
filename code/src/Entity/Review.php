@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\ReviewRepository;
 use Phillarmonic\SyncopateBundle\Attribute\Entity;
 use Phillarmonic\SyncopateBundle\Attribute\Field;
 use Phillarmonic\SyncopateBundle\Attribute\Relationship;
@@ -12,7 +13,8 @@ use DateTimeInterface;
 #[Entity(
     name: 'review',
     idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
-    description: 'Product review entity for benchmarking'
+    description: 'Product review entity for benchmarking',
+    repositoryClass: ReviewRepository::class
 )]
 class Review
 {

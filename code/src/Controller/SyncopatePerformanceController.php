@@ -536,9 +536,9 @@ class SyncopatePerformanceController extends AbstractController
             $product = new Product();
             $product->name = 'Stress Test Product ' . $i;
             $product->description = 'Created during stress test';
-            $product->price = mt_rand(100, 1000) / 10;
-            $product->stock = mt_rand(1, 100);
-            $product->sku = 'STRESS-' . uniqid();
+            $product->price = random_int(100, 1000) / 10;
+            $product->stock = random_int(1, 100);
+            $product->sku = 'STRESS-' . uniqid('', true);
             $product->categoryId = $category->id;
             $product = $this->syncopateService->create($product);
 

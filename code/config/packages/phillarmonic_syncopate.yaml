@@ -3,10 +3,10 @@ phillarmonic_syncopate:
     base_url: 'http://syncopatedb:8080'
 
     # Optional configurations with defaults
-    timeout: 2
-    retry_failed: false
+    timeout: 10
+    retry_failed: true
     max_retries: 3
-    retry_delay: 1000
+    retry_delay: 5
 
     # Entity discovery
     entity_paths:

@@ -11,7 +11,7 @@ use DateTimeInterface;
 
 #[Entity(
     name: 'tag',
-    idGenerator: EntityDefinition::ID_TYPE_UUID,
+    idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
     description: 'Tag entity for benchmarking'
 )]
 class Tag

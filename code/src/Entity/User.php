@@ -11,7 +11,7 @@ use DateTimeInterface;
 
 #[Entity(
     name: 'user',
-    idGenerator: EntityDefinition::ID_TYPE_UUID,
+    idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
     description: 'User entity for benchmarking'
 )]
 class User

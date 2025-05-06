@@ -11,7 +11,7 @@ use DateTimeInterface;
 
 #[Entity(
     name: 'review',
-    idGenerator: EntityDefinition::ID_TYPE_UUID,
+    idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
     description: 'Product review entity for benchmarking'
 )]
 class Review

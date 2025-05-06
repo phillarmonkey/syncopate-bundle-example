@@ -11,7 +11,7 @@ use DateTimeInterface;
 
 #[Entity(
     name: 'product',
-    idGenerator: EntityDefinition::ID_TYPE_UUID,
+    idGenerator: EntityDefinition::ID_TYPE_AUTO_INCREMENT,
     description: 'Product entity for benchmarking'
 )]
 class Product
